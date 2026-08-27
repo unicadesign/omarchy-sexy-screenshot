@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "unicadesign.sexy-screenshot",
+  "name": "Sexy Screenshot",
+  "version": "1.0.0",
+  "author": "unicadesign",
+  "license": "MIT",
+  "description": "Sexy Screenshot: take screenshots, extract text, pick colors, and start screen recordings from the Omarchy bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Sexy Screenshot",
+    "description": "Click: capture panel. Right click: screenshot. Middle click: fullscreen. While recording, the icon stays lit.",
+    "category": "Capture",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "closeDelayMs": 300,
+      "rightClickAction": "smart"
+    },
+    "schema": [
+      {
+        "key": "closeDelayMs",
+        "type": "integer",
+        "label": "Delay before capture (ms)",
+        "description": "Wait after closing the panel so the popup is gone before the screen freeze. Right-click from the bar does not wait.",
+        "min": 100,
+        "max": 1000,
+        "step": 50,
+        "defaultValue": 300
+      },
+      {
+        "key": "rightClickAction",
+        "type": "enum",
+        "label": "Right-click capture",
+        "description": "What a right-click on the bar icon captures. Same modes as omarchy capture screenshot.",
+        "options": [
+          "smart",
+          "region",
+          "windows",
+          "fullscreen"
+        ],
+        "defaultValue": "smart"
+      }
+    ]
+  }
+}
