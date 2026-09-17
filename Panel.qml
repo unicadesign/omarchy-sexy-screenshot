@@ -14,11 +14,23 @@ Panel {
   manageIpc: false
 
   property bool recording: false
+  property string recordingKind: "idle"
   property bool hasWebcam: false
   property string pendingCommand: ""
   property int cursorIndex: -1
   property bool cursorActive: false
   property bool cursorFromPointer: false
+
+  function pluginPath(rel) {
+    var u = String(Qt.resolvedUrl(rel))
+    if (u.indexOf("file://") === 0) u = u.substring(7)
+    try { return decodeURIComponent(u) } catch (e) { return u }
+  }
+
+  readonly property string pinnedScriptPath: pluginPath("scripts/pinned-window-record")
+  readonly property string pinnedStartCommand: JSON.stringify(pinnedScriptPath)
+  readonly property string pinnedStopCommand: JSON.stringify(pinnedScriptPath) + " --stop"
+  readonly property string stopCommand: pinnedStopCommand + "; omarchy-capture-screenrecording --stop-recording >/dev/null 2>&1 || true"
 
   readonly property bool primaryInstance: {
     var w = root.QsWindow.window
@@ -61,10 +73,11 @@ Panel {
       { section: "MORE", id: "color", icon: "󰃉", label: "Color picker", hint: "p", command: "pkill hyprpicker || hyprpicker -a" }
     ]
     if (recording) {
-      list.push({ section: "RECORD", id: "stop", icon: "󰓛", label: "Stop recording", hint: "r", command: "omarchy-capture-screenrecording --stop-recording" })
+      list.push({ section: "RECORD", id: "stop", icon: "󰓛", label: recordingKind === "pinned" ? "Stop pinned recording" : "Stop recording", hint: "r", command: stopCommand })
     } else {
       list.push({ section: "RECORD", id: "record-region", icon: "", label: "Record region", hint: "r", command: recordCommands.region })
       list.push({ section: "RECORD", id: "record-full", icon: "󰹑", label: "Record fullscreen", hint: "f", command: recordCommands.fullscreen })
+      list.push({ section: "RECORD", id: "record-pinned", icon: "󰖲", label: "Pin window recording", hint: "w", command: pinnedStartCommand })
       list.push({ section: "RECORD", id: "record-desktop", icon: "", label: "With desktop audio", hint: "", command: recordCommands["desktop-audio"] })
       list.push({ section: "RECORD", id: "record-mic", icon: "󰍬", label: "With desktop + mic", hint: "", command: recordCommands.microphone })
       if (hasWebcam)
@@ -82,6 +95,10 @@ Panel {
 
   function launch(command) {
     if (!command) return
+    // Classic KMS recording would otherwise start beside a pinned portal
+    // capture. Stop pinned first when the user asks for a live-screen record.
+    if (command.indexOf("omarchy-capture-screenrecording") === 0 && command.indexOf("--stop-recording") < 0)
+      command = pinnedStopCommand + " >/dev/null 2>&1 || true; " + command
     pendingCommand = command
     if (opened) {
       close()
@@ -120,11 +137,15 @@ Panel {
 
   function record(mode) {
     if (recording) {
-      launch("omarchy-capture-screenrecording --stop-recording")
+      launch(stopCommand)
       return "ok"
     }
     var key = String(mode || "region").trim()
     if (key === "" || key === "region") key = "region"
+    if (key === "pinned" || key === "window") {
+      launch(pinnedStartCommand)
+      return "ok"
+    }
     var command = recordCommands[key]
     if (!command) return "error: unknown mode: " + key
     launch(command)
@@ -181,17 +202,24 @@ Panel {
     function screenshot(mode: string): string { return root.screenshot(mode) }
     function record(mode: string): string { return root.record(mode) }
     function stop(): string {
-      root.launch("omarchy-capture-screenrecording --stop-recording")
+      root.launch(root.stopCommand)
       return "ok"
     }
-    function status(): string { return root.recording ? "recording" : "idle" }
+    function status(): string { return root.recordingKind || (root.recording ? "recording" : "idle") }
   }
 
   Process {
     id: statusProc
-    command: ["pgrep", "--quiet", "-f", "^gpu-screen-recorder"]
-    onExited: function(exitCode) {
-      root.recording = exitCode === 0
+    command: [root.pinnedScriptPath, "--status"]
+    stdout: StdioCollector {
+      id: statusOut
+      waitForEnd: true
+    }
+    onExited: {
+      var s = String(statusOut.text || "").trim()
+      if (s === "") s = "idle"
+      root.recordingKind = s
+      root.recording = (s === "pinned" || s === "classic")
     }
   }
 
@@ -231,9 +259,11 @@ Panel {
     bar: root.bar
     text: root.recording ? "󰻂" : ""
     active: root.recording
-    tooltipText: root.recording
-      ? "Recording — click for options, click Stop in the panel"
-      : "Screenshot — click for options, right-click to capture"
+    tooltipText: root.recordingKind === "pinned"
+      ? "Pinned window recording — switch workspaces freely, Stop in the panel"
+      : (root.recording
+        ? "Recording — click for options, click Stop in the panel"
+        : "Screenshot — click for options, right-click to capture")
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) {
         var mode = String(root.setting("rightClickAction", "smart") || "smart")

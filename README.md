@@ -29,8 +29,12 @@ omarchy plugin enable unicadesign.sexy-screenshot --section right --after omarch
 | Middle click | Fullscreen screenshot |
 | Click while recording | Panel still opens; Record becomes **Stop recording** |
 
-The icon stays lit while `gpu-screen-recorder` is running, same signal the
-stock screen-recording indicator uses.
+The icon stays lit while a recording is running.
+
+**Pinned window recording** is separate from classic region/fullscreen
+recording. Classic capture is whatever is on the monitor. Pinned uses the
+desktop portal: pick a **window**, then switch workspaces — that window stays
+in the file. In the share picker, choose a window, not a screen.
 
 **In the panel:** `j` / `k` or arrows move the cursor, `Enter` / `Space` runs
 the row. `Esc` closes. Number and letter keys skip the cursor:
@@ -48,6 +52,7 @@ the row. `Esc` closes. Number and letter keys skip the cursor:
 | `p` | Color picker |
 | `r` | Start or stop a region recording |
 | `f` | Start a fullscreen recording |
+| `w` | Pin window recording (keeps capturing after you leave the workspace) |
 
 The panel closes before a capture so it is not in the shot.
 
@@ -72,8 +77,9 @@ omarchy-shell unicadesign.sexy-screenshot screenshot windows
 omarchy-shell unicadesign.sexy-screenshot screenshot fullscreen
 omarchy-shell unicadesign.sexy-screenshot record region
 omarchy-shell unicadesign.sexy-screenshot record fullscreen
+omarchy-shell unicadesign.sexy-screenshot record pinned
 omarchy-shell unicadesign.sexy-screenshot stop
-omarchy-shell unicadesign.sexy-screenshot status              # idle | recording
+omarchy-shell unicadesign.sexy-screenshot status              # idle | classic | pinned
 omarchy-shell unicadesign.sexy-screenshot open                # also: close, toggle
 ```
 
@@ -85,9 +91,9 @@ outside the usual Pictures / Videos directories those commands already use.
 - `omarchy-capture-screenshot`
 - `omarchy-capture-text`
 - `omarchy-capture-qr`
-- `omarchy-capture-screenrecording`
+- `omarchy-capture-screenrecording` for classic live-screen recording
+- `scripts/pinned-window-record` for portal window capture (pinned)
 - `hyprpicker -a` for the color picker
-- `pgrep -f '^gpu-screen-recorder'` for recording state
 - `omarchy-hw-webcam` to show the webcam recording row when a camera exists
 
 ## Uninstall

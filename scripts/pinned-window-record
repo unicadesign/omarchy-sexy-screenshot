@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# Pinned window recording for Sexy Screenshot.
+# Uses gpu-screen-recorder's portal backend so a picked WINDOW keeps
+# capturing after you leave that workspace. Classic omarchy screenrecord
+# (KMS region/monitor) is left alone: this process is started under a
+# private argv0 so the stock pkill does not stop it.
+
+set -euo pipefail
+
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/unicadesign.sexy-screenshot"
+PID_FILE="$STATE_DIR/pinned.pid"
+FILE_FILE="$STATE_DIR/pinned.file"
+LOG_FILE="$STATE_DIR/pinned.log"
+GSR_LINK="$STATE_DIR/gsr-pinned"
+
+[[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
+OUTPUT_DIR="${OMARCHY_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
+
+mkdir -p "$STATE_DIR"
+
+notify() {
+  if command -v omarchy-notification-send >/dev/null; then
+    omarchy-notification-send "$@"
+  fi
+}
+
+pinned_pid() {
+  local pid
+  [[ -f $PID_FILE ]] || return 1
+  pid=$(cat "$PID_FILE" 2>/dev/null) || return 1
+  [[ $pid =~ ^[0-9]+$ ]] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  echo "$pid"
+}
+
+classic_active() {
+  pgrep -f '^gpu-screen-recorder' >/dev/null
+}
+
+status() {
+  if pinned_pid >/dev/null; then
+    echo pinned
+  elif classic_active; then
+    echo classic
+  else
+    echo idle
+  fi
+}
+
+default_resolution() {
+  local width height
+  read -r width height < <(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | "\(.width) \(.height)"' 2>/dev/null)
+  if [[ -n ${width:-} && -n ${height:-} ]] && ((width > 3840 || height > 2160)); then
+    echo "3840x2160"
+  else
+    echo "0x0"
+  fi
+}
+
+stop_pinned() {
+  local pid filename
+  pid=$(pinned_pid || true)
+  if [[ -z ${pid:-} ]]; then
+    rm -f "$PID_FILE"
+    return 0
+  fi
+
+  kill -INT "$pid" 2>/dev/null || true
+
+  local count=0
+  while kill -0 "$pid" 2>/dev/null && ((count < 50)); do
+    sleep 0.1
+    count=$((count + 1))
+  done
+
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -9 "$pid" 2>/dev/null || true
+    notify -u critical -t 5000 "Pinned recording error" "Recording process had to be force-killed. Video may be corrupted."
+  else
+    filename=$(cat "$FILE_FILE" 2>/dev/null || true)
+    if [[ -n ${filename:-} && -f $filename ]]; then
+      echo "$filename"
+      notify "Pinned window recording saved" "Open with click" \
+        -t 10000 \
+        --exec mpv -- "$filename"
+    fi
+  fi
+
+  rm -f "$PID_FILE" "$FILE_FILE"
+  command -v omarchy-shell >/dev/null && omarchy-shell -q omarchy.indicators refresh >/dev/null 2>&1 || true
+}
+
+start_pinned() {
+  if pinned_pid >/dev/null; then
+    stop_pinned
+    return 0
+  fi
+
+  if classic_active; then
+    omarchy-capture-screenrecording --stop-recording >/dev/null 2>&1 || true
+  fi
+
+  if [[ ! -d $OUTPUT_DIR ]]; then
+    notify -u critical -t 3000 "Screen recording directory does not exist: $OUTPUT_DIR"
+    exit 1
+  fi
+
+  local gsr
+  gsr=$(command -v gpu-screen-recorder) || {
+    notify -u critical -t 3000 "gpu-screen-recorder is not installed"
+    exit 1
+  }
+  ln -sfn "$gsr" "$GSR_LINK"
+
+  local filename="$OUTPUT_DIR/pinned-window-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
+  local audio_args=()
+  if [[ ${WITH_DESKTOP_AUDIO:-0} == 1 ]]; then
+    audio_args+=(-a default_output -ac aac)
+  fi
+
+  notify -t 6000 "Pinned window recording" "Pick a WINDOW in the share picker — not a screen. Capture keeps going if you leave that workspace."
+
+  echo "===== $(date '+%F %T') portal window start =====" >>"$LOG_FILE"
+  "$GSR_LINK" -w portal -s "$(default_resolution)" -k auto -f 60 -fm cfr \
+    -fallback-cpu-encoding yes -restore-portal-session no \
+    -o "$filename" "${audio_args[@]}" >>"$LOG_FILE" 2>&1 &
+  local pid=$!
+  echo "$pid" >"$PID_FILE"
+  echo "$filename" >"$FILE_FILE"
+
+  while kill -0 "$pid" 2>/dev/null && [[ ! -f $filename ]]; do
+    sleep 0.2
+  done
+
+  if ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$PID_FILE" "$FILE_FILE"
+    notify -u critical -t 4000 "Pinned recording cancelled" "No window was captured. Pick a window, not a screen, and try again."
+    exit 1
+  fi
+
+  command -v omarchy-shell >/dev/null && omarchy-shell -q omarchy.indicators refresh >/dev/null 2>&1 || true
+}
+
+usage() {
+  echo "Usage: pinned-window-record [--stop|--status|--help]" >&2
+}
+
+STOP=0
+STATUS=0
+WITH_DESKTOP_AUDIO=0
+
+for arg in "$@"; do
+  case "$arg" in
+  --stop) STOP=1 ;;
+  --status) STATUS=1 ;;
+  --with-desktop-audio) WITH_DESKTOP_AUDIO=1 ;;
+  --help | -h)
+    usage
+    exit 0
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+  esac
+done
+
+if ((STATUS)); then
+  status
+  exit 0
+fi
+
+if ((STOP)); then
+  stop_pinned
+  exit 0
+fi
+
+start_pinned
