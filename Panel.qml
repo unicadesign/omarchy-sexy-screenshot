@@ -71,7 +71,7 @@ Panel {
     } else {
       list.push({ section: "RECORD", id: "record-region", icon: "", label: "Record region", hint: "r", command: recordCommands.region })
       list.push({ section: "RECORD", id: "record-full", icon: "󰹑", label: "Record fullscreen", hint: "f", command: recordCommands.fullscreen })
-      list.push({ section: "RECORD", id: "record-pinned", icon: "󰖲", label: "Pin window recording", hint: "w", command: pinnedStartCommand })
+      list.push({ section: "RECORD", id: "record-pinned", icon: "󰖲", label: "Pin window + desktop audio", hint: "w", command: pinnedStartCommand })
       list.push({ section: "RECORD", id: "record-desktop", icon: "", label: "With desktop audio", hint: "", command: recordCommands["desktop-audio"] })
       list.push({ section: "RECORD", id: "record-mic", icon: "󰍬", label: "With desktop + mic", hint: "", command: recordCommands.microphone })
       if (hasWebcam)

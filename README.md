@@ -52,7 +52,7 @@ the row. `Esc` closes. Number and letter keys skip the cursor:
 | `p` | Color picker |
 | `r` | Start or stop a region recording |
 | `f` | Start a fullscreen recording |
-| `w` | Pin window recording (keeps capturing after you leave the workspace) |
+| `w` | Pin window recording (window stays captured after you leave the workspace, with desktop audio) |
 
 The panel closes before a capture so it is not in the shot.
 

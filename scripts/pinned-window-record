@@ -113,12 +113,10 @@ start_pinned() {
   ln -sfn "$gsr" "$GSR_LINK"
 
   local filename="$OUTPUT_DIR/pinned-window-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
-  local audio_args=()
-  if [[ ${WITH_DESKTOP_AUDIO:-0} == 1 ]]; then
-    audio_args+=(-a default_output -ac aac)
-  fi
+  # Always capture what the machine is playing (app/browser/call audio).
+  local audio_args=(-a default_output -ac aac)
 
-  notify -t 6000 "Pinned window recording" "Pick a WINDOW in the share picker — not a screen. Capture keeps going if you leave that workspace."
+  notify -t 6000 "Pinned window recording" "Pick a WINDOW in the share picker — not a screen. Desktop audio is included. Capture keeps going if you leave that workspace."
 
   echo "===== $(date '+%F %T') portal window start =====" >>"$LOG_FILE"
   "$GSR_LINK" -w portal -s "$(default_resolution)" -k auto -f 60 -fm cfr \
@@ -147,13 +145,12 @@ usage() {
 
 STOP=0
 STATUS=0
-WITH_DESKTOP_AUDIO=0
 
 for arg in "$@"; do
   case "$arg" in
   --stop) STOP=1 ;;
   --status) STATUS=1 ;;
-  --with-desktop-audio) WITH_DESKTOP_AUDIO=1 ;;
+  --with-desktop-audio) ;;
   --help | -h)
     usage
     exit 0
