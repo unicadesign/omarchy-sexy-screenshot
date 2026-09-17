@@ -21,15 +21,9 @@ Panel {
   property bool cursorActive: false
   property bool cursorFromPointer: false
 
-  function pluginPath(rel) {
-    var u = String(Qt.resolvedUrl(rel))
-    if (u.indexOf("file://") === 0) u = u.substring(7)
-    try { return decodeURIComponent(u) } catch (e) { return u }
-  }
-
-  readonly property string pinnedScriptPath: pluginPath("scripts/pinned-window-record")
-  readonly property string pinnedStartCommand: JSON.stringify(pinnedScriptPath)
-  readonly property string pinnedStopCommand: JSON.stringify(pinnedScriptPath) + " --stop"
+  readonly property string pinnedScriptPath: (Quickshell.env("HOME") || "") + "/.config/omarchy/plugins/unicadesign.sexy-screenshot/scripts/pinned-window-record"
+  readonly property string pinnedStartCommand: "\"" + pinnedScriptPath + "\""
+  readonly property string pinnedStopCommand: "\"" + pinnedScriptPath + "\" --stop"
   readonly property string stopCommand: pinnedStopCommand + "; omarchy-capture-screenrecording --stop-recording >/dev/null 2>&1 || true"
 
   readonly property bool primaryInstance: {
